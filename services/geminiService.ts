@@ -3,7 +3,7 @@ import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
   // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -13,13 +13,13 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
     1. SELECTION: Select 1 to 3 existing pieces of human creation that anchor this feeling in reality.
        - IMPORTANT: Ensure global and temporal diversity. Avoid overused Western canon tropes. 
        - Explore ancient history, non-Western art, contemporary digital culture, or obscure avant-garde works.
+       - Focus on a mix of mediums: Cinema, Experimental Sound, Modern Poetry, Sculpture, Ancient Ceramics, or Intangible Heritage. Do NOT lean exclusively on architecture.
        - If heavy/complex, return ONLY ONE perfect match.
        - If lighter/multifaceted, return up to 3.
-       - Types: Architecture, Poetry, Painting, Song, Movie Scene, Sculpture, Letter, Video Game Environment.
     
     2. CONTENT:
        - NO EXPLANATIONS.
-       - Text/Audio: Specific Lyric/Quote.
+       - Text/Audio: Specific Lyric/Quote/Vibe.
        - Visuals/Objects: Brief objective description of the resonant aspect.
     
     3. THEMATIC KEY: A single word capturing the essence of the input.
@@ -57,7 +57,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
+        systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world across all artistic mediums.",
         temperature: 1.0,
       },
     });

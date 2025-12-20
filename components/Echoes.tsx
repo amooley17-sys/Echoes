@@ -16,7 +16,8 @@ import {
   Volume2,
   VolumeX,
   X,
-  Clock
+  Clock,
+  Image as ImageIcon
 } from 'lucide-react';
 import { findEchoesForFeeling, generateEchoArtifact } from '../services/geminiService';
 import type { EchoData, HistoryItem } from '../types';
@@ -171,24 +172,45 @@ const Echoes: React.FC = () => {
       setView('echo');
     } catch (err: any) {
       console.error(err);
-      if (err.message.includes("429")) {
-        setError("The archive is overwhelmed (Quota Exceeded). Please wait a moment.");
-      } else {
-        setError("The archive is silent. " + (err.message || "Please check your connection."));
-      }
+      setError("The archive is silent. " + (err.message || "Please check your connection."));
     } finally { setLoading(false); }
   };
 
   const generateArtifact = async () => {
     if (!data) return;
     setView('synthesizing');
-    const echoInfluences = data.echoes.map(e => `${e.title} (${e.type})`).join(', ');
-    const synthesisPrompt = `Abstract art for feeling: "${data.thematic_key}". Influences: ${echoInfluences}. Color palette: ${data.color_hex}.`;
+    
+    const mediums = data.echoes.map(e => e.type).join(', ');
+    const synthesisPrompt = `
+      Metaphysical abstract representation of "${data.thematic_key}". 
+      Emotional textures: ${input}. 
+      Echo influences: ${mediums}. 
+      Style: Ethereal dreamscape, fluid organic forms, light leaks. 
+      Avoid architectural structures. Focus on emotional color fields.
+      Dominant palette: ${data.color_hex}. 
+    `;
+
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
+      
+      // PRE-LOAD IMAGE TO ENSURE SMOOTH TRANSITION
+      const imgLoadPromise = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => resolve(imageUrl);
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+
+      // Artificial wait to make the synthesis feel deliberate as requested
+      const minWaitPromise = new Promise(resolve => setTimeout(resolve, 3000));
+
+      await Promise.all([imgLoadPromise, minWaitPromise]);
+
       setSynthesisImage(imageUrl);
       setView('artifact');
     } catch (err) {
+      console.error("Artifact generation failed", err);
       setError("Unable to synthesize artifact.");
       setView('echo');
     }
@@ -199,9 +221,10 @@ const Echoes: React.FC = () => {
 
   const getIcon = (type: string) => {
     const t = type.toLowerCase();
-    if (t.includes('book') || t.includes('poetry')) return <BookOpen className="w-4 h-4" />;
-    if (t.includes('song') || t.includes('music')) return <Music className="w-4 h-4" />;
-    if (t.includes('film') || t.includes('movie')) return <Film className="w-4 h-4" />;
+    if (t.includes('book') || t.includes('poetry') || t.includes('letter')) return <BookOpen className="w-4 h-4" />;
+    if (t.includes('song') || t.includes('music') || t.includes('sound')) return <Music className="w-4 h-4" />;
+    if (t.includes('film') || t.includes('movie') || t.includes('cinema')) return <Film className="w-4 h-4" />;
+    if (t.includes('paint') || t.includes('sculpt') || t.includes('art')) return <ImageIcon className="w-4 h-4" />;
     return <Ghost className="w-4 h-4" />;
   };
 
@@ -277,8 +300,8 @@ const Echoes: React.FC = () => {
           )}
 
           {view === 'echo' && data && (
-            <div className="flex-grow overflow-y-auto w-full px-4 md:px-8 py-8 animate-in fade-in duration-1000">
-              <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-min">
+            <div className="flex-grow overflow-y-auto w-full px-4 md:px-8 pt-8 pb-40 md:pb-48 animate-in fade-in duration-1000">
+              <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-min mb-16">
                   <div className="md:col-span-2 bg-stone-900/40 border border-stone-800/50 p-6 md:p-8 rounded-sm flex flex-col justify-between min-h-[180px]">
                       <div className="flex justify-between items-start mb-4">
                           <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">You Traced</div>
@@ -305,41 +328,71 @@ const Echoes: React.FC = () => {
                            </div>
                       </div>
                   ))}
-                  <div className="md:col-span-1 bg-stone-900/20 border border-dashed border-stone-700 p-6 rounded-sm flex flex-col justify-between transition-all group relative overflow-hidden">
+                  
+                  <a 
+                    href={`https://www.reddit.com/search/?q=${encodeURIComponent(data.search_query || input)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="md:col-span-1 bg-stone-900/20 border border-dashed border-stone-700 p-6 rounded-sm flex flex-col justify-between transition-all group relative overflow-hidden hover:border-stone-500 cursor-pointer"
+                  >
                       <div className="relative z-10">
-                          <div className="flex items-center gap-2 text-stone-400 mb-4"><MessageCircle className="w-4 h-4" /><span className="text-[10px] uppercase tracking-widest font-medium font-mono">The Human Archive</span></div>
+                          <div className="flex items-center gap-2 text-stone-400 mb-4">
+                            <MessageCircle className="w-4 h-4" />
+                            <span className="text-[10px] uppercase tracking-widest font-medium font-mono">The Human Archive</span>
+                            <ExternalLink className="w-3 h-3 ml-auto opacity-40 group-hover:opacity-100 transition-opacity" />
+                          </div>
                           <p className="text-sm text-stone-300 leading-relaxed font-mono opacity-80 tracking-tight">"{data.community_insight}"</p>
                       </div>
-                  </div>
+                      <div className="mt-6 flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-mono group-hover:text-stone-300">
+                          View community <ArrowLeft className="w-3 h-3 rotate-180" />
+                      </div>
+                  </a>
               </div>
               <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-stone-950 via-stone-950/95 to-transparent pt-12 pb-8 px-8 flex justify-between items-end z-20 pointer-events-none">
                   <button onClick={handleReset} className="px-5 py-2 rounded-full border border-stone-700 bg-stone-950 text-[10px] uppercase tracking-widest text-stone-400 hover:text-stone-200 transition-all pointer-events-auto">Trace Another</button>
-                  <button onClick={generateArtifact} className="flex items-center gap-3 px-6 py-3 rounded-full bg-stone-100 text-stone-950 hover:scale-105 transition-all group pointer-events-auto"><Moon className="w-3 h-3 fill-current" /><span className="text-xs font-bold uppercase tracking-widest">Sit with this</span></button>
+                  <button onClick={generateArtifact} className="flex items-center gap-3 px-6 py-3 rounded-full bg-stone-100 text-stone-950 hover:scale-105 transition-all group pointer-events-auto shadow-[0_0_30px_rgba(255,255,255,0.1)]"><Moon className="w-3 h-3 fill-current" /><span className="text-xs font-bold uppercase tracking-widest">Sit with this</span></button>
               </div>
             </div>
           )}
 
           {view === 'synthesizing' && (
               <div className="flex-grow flex flex-col justify-center items-center animate-in fade-in duration-1000">
-                  <Loader2 className="w-8 h-8 animate-spin text-stone-500" />
+                  <div className="relative">
+                      <div className="w-16 h-16 border border-stone-800 rounded-full animate-ping absolute opacity-20"></div>
+                      <Loader2 className="w-8 h-8 animate-spin text-stone-500" />
+                  </div>
                   <div className="mt-8 text-xs tracking-[0.3em] uppercase text-stone-500 animate-pulse">Synthesizing Artifact</div>
               </div>
           )}
 
           {view === 'artifact' && synthesisImage && data && (
-              <div className="flex-grow w-full h-full flex flex-col justify-center items-center px-6 py-8 animate-in fade-in duration-1000">
+              <div className="flex-grow w-full h-full flex flex-col justify-center items-center px-6 py-8 pb-48 md:pb-56 animate-in fade-in zoom-in-95 duration-1000">
                   <div className="flex flex-col items-center justify-center w-full max-w-sm flex-grow">
                       <div className="relative w-full bg-stone-900 shadow-2xl overflow-hidden group border border-stone-800">
-                          <div className="aspect-square w-full relative overflow-hidden"><img src={synthesisImage} alt="Artifact" className="w-full h-full object-cover" /></div>
-                          <div className="bg-stone-950 p-6 space-y-3 border-t border-stone-800">
-                              <div className="pb-4 mb-4 border-b border-stone-900"><h2 className="text-2xl font-serif text-white leading-none">{data.thematic_key}</h2></div>
-                              {data.echoes.map((echo, idx) => (
-                                  <div key={idx} className="flex justify-between items-center text-[10px] text-stone-500"><span className="uppercase tracking-wider truncate max-w-[180px] text-stone-400">{echo.title}</span><span className="font-mono opacity-50">{echo.year}</span></div>
-                              ))}
+                          <div className="aspect-square w-full relative overflow-hidden bg-stone-950">
+                             <img src={synthesisImage} alt="Artifact" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="bg-stone-950 p-6 space-y-4 border-t border-stone-800">
+                              <div className="pb-4 mb-2 border-b border-stone-900">
+                                <h2 className="text-2xl font-serif text-white leading-none">{data.thematic_key}</h2>
+                              </div>
+                              <div className="space-y-3">
+                                {data.echoes.map((echo, idx) => (
+                                    <div key={idx} className="flex justify-between items-start text-[10px] text-stone-500 gap-4">
+                                        <span className="uppercase tracking-wider text-stone-400 font-bold leading-tight flex-grow text-left">{echo.title}</span>
+                                        <span className="font-mono opacity-50 whitespace-nowrap text-right">{echo.year}</span>
+                                    </div>
+                                ))}
+                              </div>
                           </div>
                       </div>
-                      <div className="mt-8 flex flex-col gap-4 w-full">
-                          <button onClick={handleReset} className="w-full py-4 border border-stone-800 text-stone-400 font-medium text-xs uppercase tracking-widest rounded-full hover:text-white transition-colors">Trace Another</button>
+                      <div className="mt-12 flex flex-col gap-4 w-full">
+                          <button 
+                            onClick={handleReset} 
+                            className="w-full py-5 bg-transparent border border-stone-700 text-stone-200 font-bold text-xs uppercase tracking-[0.4em] rounded-full hover:bg-stone-200 hover:text-stone-950 hover:border-white transition-all shadow-[0_0_40px_rgba(255,255,255,0.02)]"
+                          >
+                            Trace Another
+                          </button>
                       </div>
                   </div>
               </div>
