@@ -2,14 +2,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // CRITICAL: Vite requires 'import.meta.env' and the 'VITE_' prefix for browser apps
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please set VITE_GEMINI_API_KEY in Vercel.");
-  }
-
-  const genAI = new GoogleGenAI(apiKey);
+  // Always initialize with process.env.API_KEY exactly as required.
+  // We create a new instance right before the call to ensure the latest key is used.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -57,22 +52,19 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
   };
 
   try {
-    // Switched to 1.5-flash to avoid the 20-request-per-day limit of the v3 preview
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash", 
-      systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
-    });
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
+        systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
         temperature: 1.0,
       },
     });
 
-    const text = result.response.text();
+    // Access the .text property directly (not as a function call)
+    const text = response.text;
     if (!text) throw new Error("The archive returned no data.");
 
     return JSON.parse(text) as EchoData;
@@ -84,5 +76,6 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
   const seed = Math.floor(Math.random() * 1000000);
+  // Using Pollinations for background artifact generation
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };

@@ -5,10 +5,8 @@ import {
   Film, 
   Loader2, 
   Sparkles, 
-  Image as ImageIcon, 
   Ghost, 
   Moon, 
-  ArrowRight, 
   ArrowLeft, 
   Compass, 
   MessageCircle, 
@@ -18,7 +16,8 @@ import {
   Volume2,
   VolumeX,
   X,
-  Clock
+  Clock,
+  Key
 } from 'lucide-react';
 import { findEchoesForFeeling, generateEchoArtifact } from '../services/geminiService';
 import type { EchoData, HistoryItem } from '../types';
@@ -29,11 +28,8 @@ const PLACEHOLDERS = [
   "the silence after a loud party...",
   "feeling like a ghost in my own life...",
   "the smell of old books and rain...",
-  "waking up and forgetting who I am for a second...",
   "the heavy quiet of a sunday evening...",
   "missing a version of myself that no longer exists...",
-  "the urge to disappear into a forest...",
-  "finding comfort in gray skies...",
   "the weight of unsaid words...",
   "craving a silence I can't explain..."
 ];
@@ -47,14 +43,14 @@ const DRIFT_CONCEPTS = [
   "Finding beauty in things that are falling apart."
 ];
 
-type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
+type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact' | 'key_check';
 
 const Echoes: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<EchoData | null>(null);
   const [error, setError] = useState('');
-  const [view, setView] = useState<ViewState>('input');
+  const [view, setView] = useState<ViewState>('key_check');
   const [synthesisImage, setSynthesisImage] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   
@@ -64,6 +60,35 @@ const Echoes: React.FC = () => {
   
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // --- API KEY SELECTION LOGIC ---
+  useEffect(() => {
+    const checkApiKey = async () => {
+      // @ts-ignore
+      if (typeof window.aistudio !== 'undefined') {
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (hasKey) {
+          setView('input');
+        }
+      } else {
+        // Fallback for environments without aistudio global
+        setView('input');
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const handleOpenKey = async () => {
+    // @ts-ignore
+    if (typeof window.aistudio !== 'undefined') {
+      // @ts-ignore
+      await window.aistudio.openSelectKey();
+      // Proceed immediately as per race condition instructions
+      setView('input');
+    }
+  };
+
+  // --- AMBIENT AUDIO ENGINE ---
   useEffect(() => {
     let lastOut = 0;
     const initAudio = () => {
@@ -114,6 +139,7 @@ const Echoes: React.FC = () => {
     }
   }, [isMuted]);
 
+  // --- PERSISTENCE ---
   useEffect(() => {
       const savedHistory = localStorage.getItem('echoes_history');
       if (savedHistory) {
@@ -126,8 +152,9 @@ const Echoes: React.FC = () => {
               if (parsed.data) {
                   setData(parsed.data);
                   setInput(parsed.input || '');
-                  setView(parsed.view || 'echo');
                   if (parsed.view === 'artifact' && parsed.synthesisImage) setSynthesisImage(parsed.synthesisImage);
+                  // Only restore view if we aren't stuck on key_check
+                  if (view !== 'key_check') setView(parsed.view || 'echo');
               }
           } catch (e) { console.error("Failed to restore session", e); }
       }
@@ -149,7 +176,7 @@ const Echoes: React.FC = () => {
   };
 
   useEffect(() => {
-    if (data) {
+    if (data && view !== 'key_check') {
         localStorage.setItem('echoes_active_session', JSON.stringify({ data, input, view, synthesisImage }));
     }
   }, [data, input, view, synthesisImage]);
@@ -162,13 +189,14 @@ const Echoes: React.FC = () => {
     return () => clearInterval(interval);
   }, [view]);
 
+  // --- MAIN ACTIONS ---
   const findEcho = async (overrideInput?: string) => {
     const searchTerm = overrideInput || input;
     if (!searchTerm || !searchTerm.trim()) return;
     setLoading(true);
     setError('');
     setSynthesisImage(null); 
-    const delayPromise = new Promise(resolve => setTimeout(resolve, 2500));
+    const delayPromise = new Promise(resolve => setTimeout(resolve, 2000));
     try {
       const [resultData] = await Promise.all([ findEchoesForFeeling(searchTerm), delayPromise ]);
       setData(resultData);
@@ -176,7 +204,15 @@ const Echoes: React.FC = () => {
       setView('echo');
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "The archive is silent. Please check your connection.");
+      if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
+        setError("Archive quota exceeded. Please select a personal API key from a paid project to continue.");
+        // If aistudio is present, we could trigger openSelectKey directly or show a button
+      } else if (err.message.includes("Requested entity was not found")) {
+        setError("Invalid API key configuration. Please re-select your key.");
+        handleOpenKey();
+      } else {
+        setError(err.message || "The archive is silent. Please check your connection.");
+      }
     } finally { setLoading(false); }
   };
 
@@ -253,6 +289,32 @@ const Echoes: React.FC = () => {
     return <Ghost className="w-4 h-4" />;
   };
 
+  if (view === 'key_check') {
+    return (
+      <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-1000">
+        <Sparkles className="w-12 h-12 text-stone-600 mb-8" />
+        <h1 className="text-3xl md:text-4xl font-light text-stone-100 mb-6">Unlock the Archive</h1>
+        <p className="text-stone-500 max-w-sm mb-12 font-sans tracking-wide leading-relaxed">
+          The Silent Archivist is restricted. Please connect a personal API key from a paid GCP project to access the collection.
+        </p>
+        <button 
+          onClick={handleOpenKey}
+          className="px-8 py-4 bg-stone-100 text-stone-900 rounded-full font-bold text-xs uppercase tracking-[0.2em] hover:scale-105 transition-transform flex items-center gap-2"
+        >
+          <Key className="w-4 h-4" /> Select API Key
+        </button>
+        <a 
+          href="https://ai.google.dev/gemini-api/docs/billing" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="mt-8 text-stone-600 hover:text-stone-400 text-[10px] uppercase tracking-widest transition-colors underline underline-offset-4"
+        >
+          Billing Documentation
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-200 font-serif selection:bg-stone-800 transition-colors duration-1000 overflow-hidden relative">
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -277,6 +339,9 @@ const Echoes: React.FC = () => {
             <div className="flex items-center gap-4 pointer-events-auto">
                 <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors">
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <button onClick={handleOpenKey} className="p-2 text-stone-500 hover:text-stone-300 transition-colors" title="Change API Key">
+                    <Key className="w-4 h-4" />
                 </button>
                 <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors relative"><Archive className="w-4 h-4" /></button>
             </div>
@@ -319,7 +384,7 @@ const Echoes: React.FC = () => {
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
                 <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
-                {error && <div className="text-red-400 text-xs tracking-wider text-center px-4">{error}</div>}
+                {error && <div className="text-red-400 text-xs tracking-wider text-center px-4 mt-6 font-sans leading-relaxed max-w-sm">{error}</div>}
               </div>
             </div>
           )}
