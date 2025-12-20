@@ -43,6 +43,19 @@ const DRIFT_CONCEPTS = [
   "Finding beauty in things that are falling apart."
 ];
 
+const ART_STYLES = [
+  "Minimalist cinematic void with heavy grain and soft light leaks",
+  "Abstract expressionist oil painting with thick impasto textures",
+  "Ethereal double-exposure photography blending nature and light",
+  "Surreal metaphysical dreamscape with fluid, organic forms",
+  "Experimental cyanotype print with distressed edges and deep tones",
+  "Grainy film-still from a lost 1970s avant-garde masterpiece",
+  "Tactile mixed-media collage with weathered paper and ink washes",
+  "Atmospheric color-field abstraction focusing on deep emotional resonance",
+  "Minimalist sculptural study in shadow and light, very abstract",
+  "Fluid watercolor and charcoal impression, raw and emotive"
+];
+
 type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
 
 const Echoes: React.FC = () => {
@@ -179,40 +192,128 @@ const Echoes: React.FC = () => {
   const generateArtifact = async () => {
     if (!data) return;
     setView('synthesizing');
+    setError('');
     
-    const mediums = data.echoes.map(e => e.type).join(', ');
+    const echoesContent = data.echoes.map(e => e.title).join(', ');
+    const randomStyle = ART_STYLES[Math.floor(Math.random() * ART_STYLES.length)];
+    
+    // Constructing a more poetic prompt that avoids "statue/artifact" literalism
     const synthesisPrompt = `
-      Metaphysical abstract representation of "${data.thematic_key}". 
-      Emotional textures: ${input}. 
-      Echo influences: ${mediums}. 
-      Style: Ethereal dreamscape, fluid organic forms, light leaks. 
-      Avoid architectural structures. Focus on emotional color fields.
-      Dominant palette: ${data.color_hex}. 
+      A visual manifestation of the internal feeling of "${data.thematic_key}" and the emotional core of "${input}". 
+      Art style: ${randomStyle}. 
+      Influences: ${echoesContent}. 
+      Key resonance: ${data.thematic_key}.
+      Visual mood: Atmospheric, deeply personal, and evocative. 
+      Dominant color: ${data.color_hex}. 
+      Avoid literal objects, avoid statues, avoid faces, avoid historical idols. 
+      Focus on the texture of the soul, the geometry of feeling, and the play of light.
+      High resolution, cinematic, masterpiece.
     `;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
       
-      // PRE-LOAD IMAGE TO ENSURE SMOOTH TRANSITION
       const imgLoadPromise = new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = "Anonymous";
+        img.crossOrigin = "anonymous";
         img.onload = () => resolve(imageUrl);
-        img.onerror = reject;
-        img.src = imageUrl;
+        img.onerror = () => reject(new Error("Image failed to render"));
+        // Cache buster to avoid cross-origin cache issues
+        img.src = `${imageUrl}&t=${Date.now()}`;
       });
 
-      // Artificial wait to make the synthesis feel deliberate as requested
       const minWaitPromise = new Promise(resolve => setTimeout(resolve, 3000));
-
       await Promise.all([imgLoadPromise, minWaitPromise]);
 
       setSynthesisImage(imageUrl);
       setView('artifact');
-    } catch (err) {
-      console.error("Artifact generation failed", err);
-      setError("Unable to synthesize artifact.");
-      setView('echo');
+    } catch (err: any) {
+      console.error("Artifact generation failed:", err);
+      const errorMsg = typeof err === 'string' ? err : (err.message || "Synthesis interrupted.");
+      setError(`The synthesis was interrupted: ${errorMsg}`);
+      
+      // Fallback: Try one more time without pre-loading check if the first fails
+      try {
+        const imageUrl = await generateEchoArtifact(synthesisPrompt);
+        setSynthesisImage(imageUrl);
+        setView('artifact');
+      } catch (innerErr) {
+        setError("Unable to synthesize artifact at this time.");
+        setView('echo');
+      }
+    }
+  };
+
+  const handleDownloadCard = async () => {
+    if (!synthesisImage || !data) return;
+
+    try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if(!ctx) return;
+
+        const width = 1200;
+        const tracklistHeight = 150 + (data.echoes.length * 80); 
+        const height = width + tracklistHeight;
+        
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.fillStyle = '#0c0a09'; 
+        ctx.fillRect(0, 0, width, height);
+
+        const img = new Image();
+        img.crossOrigin = "anonymous"; 
+        
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => reject(new Error("Failed to load image for download"));
+            const separator = synthesisImage.includes('?') ? '&' : '?';
+            img.src = `${synthesisImage}${separator}cb=${Date.now()}`;
+        });
+
+        ctx.drawImage(img, 0, 0, width, width);
+        
+        const contentStartY = width + 80;
+        ctx.fillStyle = '#e7e5e4'; 
+        ctx.font = 'bold 60px Serif';
+        ctx.fillText(data.thematic_key, 60, contentStartY);
+
+        let currentY = contentStartY + 80;
+        
+        data.echoes.forEach((echo) => {
+            ctx.fillStyle = '#a8a29e'; 
+            ctx.font = 'bold 32px Sans-Serif';
+            ctx.fillText(echo.title.toUpperCase(), 60, currentY);
+            
+            ctx.fillStyle = '#57534e'; 
+            ctx.font = '24px Monospace';
+            ctx.fillText(`${echo.creator} / ${echo.year}`, 60, currentY + 35);
+            
+            currentY += 80; 
+        });
+
+        ctx.fillStyle = '#44403c'; 
+        ctx.font = '20px Monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`ECHOES ARCHIVE • ${new Date().toLocaleDateString()}`, width / 2, height - 40);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `echoes-manifestation-${data.thematic_key.toLowerCase()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+    } catch (e) {
+        console.error("Canvas generation failed", e);
+        const link = document.createElement('a');
+        link.href = synthesisImage;
+        link.download = `echoes-manifestation-image.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
   };
 
@@ -223,7 +324,7 @@ const Echoes: React.FC = () => {
     const t = type.toLowerCase();
     if (t.includes('book') || t.includes('poetry') || t.includes('letter')) return <BookOpen className="w-4 h-4" />;
     if (t.includes('song') || t.includes('music') || t.includes('sound')) return <Music className="w-4 h-4" />;
-    if (t.includes('film') || t.includes('movie') || t.includes('cinema')) return <Film className="w-4 h-4" />;
+    if (t.includes('film') || t.includes('movie')) return <Film className="w-4 h-4" />;
     if (t.includes('paint') || t.includes('sculpt') || t.includes('art')) return <ImageIcon className="w-4 h-4" />;
     return <Ghost className="w-4 h-4" />;
   };
@@ -290,7 +391,7 @@ const Echoes: React.FC = () => {
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDERS[placeholderIndex]} className="w-full bg-transparent border-b border-stone-800 text-xl md:text-2xl py-4 focus:outline-none focus:border-stone-500 transition-colors placeholder-stone-800 font-serif text-center" onKeyDown={(e) => e.key === 'Enter' && findEcho()} />
               </div>
               <div className="w-full flex flex-col items-center gap-6">
-                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.05)]' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
+                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.1)] opacity-100 translate-y-0' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
                 <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
@@ -361,7 +462,7 @@ const Echoes: React.FC = () => {
                       <div className="w-16 h-16 border border-stone-800 rounded-full animate-ping absolute opacity-20"></div>
                       <Loader2 className="w-8 h-8 animate-spin text-stone-500" />
                   </div>
-                  <div className="mt-8 text-xs tracking-[0.3em] uppercase text-stone-500 animate-pulse">Synthesizing Artifact</div>
+                  <div className="mt-8 text-xs tracking-[0.3em] uppercase text-stone-500 animate-pulse">Synthesizing Manifestation</div>
               </div>
           )}
 
@@ -370,7 +471,7 @@ const Echoes: React.FC = () => {
                   <div className="flex flex-col items-center justify-center w-full max-w-sm flex-grow">
                       <div className="relative w-full bg-stone-900 shadow-2xl overflow-hidden group border border-stone-800">
                           <div className="aspect-square w-full relative overflow-hidden bg-stone-950">
-                             <img src={synthesisImage} alt="Artifact" className="w-full h-full object-cover" />
+                             <img src={synthesisImage} alt="Manifestation" className="w-full h-full object-cover" />
                           </div>
                           <div className="bg-stone-950 p-6 space-y-4 border-t border-stone-800">
                               <div className="pb-4 mb-2 border-b border-stone-900">
@@ -387,6 +488,13 @@ const Echoes: React.FC = () => {
                           </div>
                       </div>
                       <div className="mt-12 flex flex-col gap-4 w-full">
+                          <button 
+                            onClick={handleDownloadCard}
+                            className="w-full py-5 bg-stone-100 text-stone-950 font-bold text-xs uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                          >
+                            Download Artifact
+                          </button>
+                          
                           <button 
                             onClick={handleReset} 
                             className="w-full py-5 bg-transparent border border-stone-700 text-stone-200 font-bold text-xs uppercase tracking-[0.4em] rounded-full hover:bg-stone-200 hover:text-stone-950 hover:border-white transition-all shadow-[0_0_40px_rgba(255,255,255,0.02)]"
