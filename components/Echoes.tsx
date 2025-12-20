@@ -16,8 +16,7 @@ import {
   Volume2,
   VolumeX,
   X,
-  Clock,
-  Key
+  Clock
 } from 'lucide-react';
 import { findEchoesForFeeling, generateEchoArtifact } from '../services/geminiService';
 import type { EchoData, HistoryItem } from '../types';
@@ -43,14 +42,14 @@ const DRIFT_CONCEPTS = [
   "Finding beauty in things that are falling apart."
 ];
 
-type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact' | 'key_check';
+type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
 
 const Echoes: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<EchoData | null>(null);
   const [error, setError] = useState('');
-  const [view, setView] = useState<ViewState>('key_check');
+  const [view, setView] = useState<ViewState>('input');
   const [synthesisImage, setSynthesisImage] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   
@@ -60,35 +59,6 @@ const Echoes: React.FC = () => {
   
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // --- API KEY SELECTION LOGIC ---
-  useEffect(() => {
-    const checkApiKey = async () => {
-      // @ts-ignore
-      if (typeof window.aistudio !== 'undefined') {
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (hasKey) {
-          setView('input');
-        }
-      } else {
-        // Fallback for environments without aistudio global
-        setView('input');
-      }
-    };
-    checkApiKey();
-  }, []);
-
-  const handleOpenKey = async () => {
-    // @ts-ignore
-    if (typeof window.aistudio !== 'undefined') {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      // Proceed immediately as per race condition instructions
-      setView('input');
-    }
-  };
-
-  // --- AMBIENT AUDIO ENGINE ---
   useEffect(() => {
     let lastOut = 0;
     const initAudio = () => {
@@ -139,7 +109,6 @@ const Echoes: React.FC = () => {
     }
   }, [isMuted]);
 
-  // --- PERSISTENCE ---
   useEffect(() => {
       const savedHistory = localStorage.getItem('echoes_history');
       if (savedHistory) {
@@ -152,9 +121,8 @@ const Echoes: React.FC = () => {
               if (parsed.data) {
                   setData(parsed.data);
                   setInput(parsed.input || '');
+                  setView(parsed.view || 'echo');
                   if (parsed.view === 'artifact' && parsed.synthesisImage) setSynthesisImage(parsed.synthesisImage);
-                  // Only restore view if we aren't stuck on key_check
-                  if (view !== 'key_check') setView(parsed.view || 'echo');
               }
           } catch (e) { console.error("Failed to restore session", e); }
       }
@@ -176,7 +144,7 @@ const Echoes: React.FC = () => {
   };
 
   useEffect(() => {
-    if (data && view !== 'key_check') {
+    if (data) {
         localStorage.setItem('echoes_active_session', JSON.stringify({ data, input, view, synthesisImage }));
     }
   }, [data, input, view, synthesisImage]);
@@ -189,7 +157,6 @@ const Echoes: React.FC = () => {
     return () => clearInterval(interval);
   }, [view]);
 
-  // --- MAIN ACTIONS ---
   const findEcho = async (overrideInput?: string) => {
     const searchTerm = overrideInput || input;
     if (!searchTerm || !searchTerm.trim()) return;
@@ -204,14 +171,10 @@ const Echoes: React.FC = () => {
       setView('echo');
     } catch (err: any) {
       console.error(err);
-      if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
-        setError("Archive quota exceeded. Please select a personal API key from a paid project to continue.");
-        // If aistudio is present, we could trigger openSelectKey directly or show a button
-      } else if (err.message.includes("Requested entity was not found")) {
-        setError("Invalid API key configuration. Please re-select your key.");
-        handleOpenKey();
+      if (err.message.includes("429")) {
+        setError("The archive is overwhelmed (Quota Exceeded). Please wait a moment.");
       } else {
-        setError(err.message || "The archive is silent. Please check your connection.");
+        setError("The archive is silent. " + (err.message || "Please check your connection."));
       }
     } finally { setLoading(false); }
   };
@@ -220,61 +183,14 @@ const Echoes: React.FC = () => {
     if (!data) return;
     setView('synthesizing');
     const echoInfluences = data.echoes.map(e => `${e.title} (${e.type})`).join(', ');
-    const synthesisPrompt = `Abstract, surreal, and conceptual art for feeling: "${data.thematic_key}". Context: ${input}. Influences: ${echoInfluences}. Color palette: ${data.color_hex}. No text.`;
+    const synthesisPrompt = `Abstract art for feeling: "${data.thematic_key}". Influences: ${echoInfluences}. Color palette: ${data.color_hex}.`;
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = imageUrl;
-      img.onload = () => { setSynthesisImage(imageUrl); setView('artifact'); };
-      img.onerror = () => { setError("Unable to render artifact."); setView('echo'); };
+      setSynthesisImage(imageUrl);
+      setView('artifact');
     } catch (err) {
-      setError("Unable to synthesize artifact visual.");
+      setError("Unable to synthesize artifact.");
       setView('echo');
-    }
-  };
-
-  const handleDownloadCard = async () => {
-    if (!synthesisImage || !data) return;
-    try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if(!ctx) return;
-        const width = 1200;
-        const tracklistHeight = 150 + (data.echoes.length * 80); 
-        const height = width + tracklistHeight;
-        canvas.width = width; canvas.height = height;
-        ctx.fillStyle = '#0c0a09'; ctx.fillRect(0, 0, width, height);
-        const img = new Image();
-        img.crossOrigin = "Anonymous"; 
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = () => reject(new Error("Failed to load image"));
-            img.src = synthesisImage.startsWith('http') ? `${synthesisImage}${synthesisImage.includes('?') ? '&' : '?'}cb=${Date.now()}` : synthesisImage;
-        });
-        ctx.drawImage(img, 0, 0, width, width);
-        const contentStartY = width + 80;
-        ctx.fillStyle = '#e7e5e4'; ctx.font = 'bold 60px Serif';
-        ctx.fillText(data.thematic_key, 60, contentStartY);
-        let currentY = contentStartY + 80;
-        data.echoes.forEach((echo) => {
-            ctx.fillStyle = '#a8a29e'; ctx.font = 'bold 32px Sans-Serif';
-            ctx.fillText(echo.title.toUpperCase(), 60, currentY);
-            ctx.fillStyle = '#57534e'; ctx.font = '24px Monospace';
-            ctx.fillText(`${echo.creator} / ${echo.year}`, 60, currentY + 35);
-            currentY += 80; 
-        });
-        ctx.fillStyle = '#44403c'; ctx.font = '20px Monospace'; ctx.textAlign = 'center';
-        ctx.fillText(`ECHOES ARCHIVE • ${new Date().toLocaleDateString()}`, width / 2, height - 40);
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = `echoes-artifact-${data.thematic_key.toLowerCase()}.png`;
-        link.click();
-    } catch (e) {
-        const link = document.createElement('a');
-        link.href = synthesisImage;
-        link.download = `echoes-artifact-image.jpg`;
-        link.click();
     }
   };
 
@@ -288,32 +204,6 @@ const Echoes: React.FC = () => {
     if (t.includes('film') || t.includes('movie')) return <Film className="w-4 h-4" />;
     return <Ghost className="w-4 h-4" />;
   };
-
-  if (view === 'key_check') {
-    return (
-      <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-1000">
-        <Sparkles className="w-12 h-12 text-stone-600 mb-8" />
-        <h1 className="text-3xl md:text-4xl font-light text-stone-100 mb-6">Unlock the Archive</h1>
-        <p className="text-stone-500 max-w-sm mb-12 font-sans tracking-wide leading-relaxed">
-          The Silent Archivist is restricted. Please connect a personal API key from a paid GCP project to access the collection.
-        </p>
-        <button 
-          onClick={handleOpenKey}
-          className="px-8 py-4 bg-stone-100 text-stone-900 rounded-full font-bold text-xs uppercase tracking-[0.2em] hover:scale-105 transition-transform flex items-center gap-2"
-        >
-          <Key className="w-4 h-4" /> Select API Key
-        </button>
-        <a 
-          href="https://ai.google.dev/gemini-api/docs/billing" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="mt-8 text-stone-600 hover:text-stone-400 text-[10px] uppercase tracking-widest transition-colors underline underline-offset-4"
-        >
-          Billing Documentation
-        </a>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-200 font-serif selection:bg-stone-800 transition-colors duration-1000 overflow-hidden relative">
@@ -339,9 +229,6 @@ const Echoes: React.FC = () => {
             <div className="flex items-center gap-4 pointer-events-auto">
                 <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors">
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-                <button onClick={handleOpenKey} className="p-2 text-stone-500 hover:text-stone-300 transition-colors" title="Change API Key">
-                    <Key className="w-4 h-4" />
                 </button>
                 <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors relative"><Archive className="w-4 h-4" /></button>
             </div>
@@ -380,7 +267,7 @@ const Echoes: React.FC = () => {
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDERS[placeholderIndex]} className="w-full bg-transparent border-b border-stone-800 text-xl md:text-2xl py-4 focus:outline-none focus:border-stone-500 transition-colors placeholder-stone-800 font-serif text-center" onKeyDown={(e) => e.key === 'Enter' && findEcho()} />
               </div>
               <div className="w-full flex flex-col items-center gap-6">
-                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 opacity-100 translate-y-0' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
+                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.05)]' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
                 <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
@@ -452,7 +339,6 @@ const Echoes: React.FC = () => {
                           </div>
                       </div>
                       <div className="mt-8 flex flex-col gap-4 w-full">
-                          <button onClick={handleDownloadCard} className="w-full py-4 bg-stone-100 text-stone-950 font-bold text-xs uppercase tracking-widest rounded-full hover:scale-105 transition-transform">Download Artifact</button>
                           <button onClick={handleReset} className="w-full py-4 border border-stone-800 text-stone-400 font-medium text-xs uppercase tracking-widest rounded-full hover:text-white transition-colors">Trace Another</button>
                       </div>
                   </div>

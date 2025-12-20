@@ -2,8 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // Always initialize with process.env.API_KEY exactly as required.
-  // We create a new instance right before the call to ensure the latest key is used.
+  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
@@ -53,7 +52,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-flash-latest",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -63,7 +62,6 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
       },
     });
 
-    // Access the .text property directly (not as a function call)
     const text = response.text;
     if (!text) throw new Error("The archive returned no data.");
 
@@ -76,6 +74,5 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
   const seed = Math.floor(Math.random() * 1000000);
-  // Using Pollinations for background artifact generation
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };
