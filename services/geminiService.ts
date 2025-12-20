@@ -2,8 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
-  // The environment (Vite/Vercel) must provide this variable.
+  // Always initialize with process.env.API_KEY exactly as required
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const prompt = `
@@ -12,7 +11,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
     Act as a "Silent Archivist" of human history.
     
     1. SELECTION: Select 1 to 3 existing pieces of human creation that anchor this feeling in reality.
-       - IMPORTANT: Ensure global and temporal diversity. 
+       - IMPORTANT: Ensure global and temporal diversity. Avoid overused Western canon tropes. 
        - Explore ancient history, non-Western art, contemporary digital culture, or obscure avant-garde works.
        - If heavy/complex, return ONLY ONE perfect match.
        - If lighter/multifaceted, return up to 3.
@@ -75,5 +74,6 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
   const seed = Math.floor(Math.random() * 1000000);
+  // Reverted to Pollinations.ai (Flux) for stable, free image generation
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };

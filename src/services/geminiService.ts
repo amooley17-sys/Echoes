@@ -1,9 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
+  // Use process.env.API_KEY as per coding guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
@@ -53,9 +52,8 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
   };
 
   try {
-    // Using gemini-3-flash-preview as per recommended models for text tasks
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -65,7 +63,6 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
       },
     });
 
-    // Access the .text property directly (not as a function call)
     const text = response.text;
     if (!text) {
       throw new Error("No response from AI");
