@@ -59,7 +59,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
   try {
     // Switched to 1.5-flash to avoid the 20-request-per-day limit of the v3 preview
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash", 
+      model: "gemini-2.5-flash", 
       systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
     });
 
