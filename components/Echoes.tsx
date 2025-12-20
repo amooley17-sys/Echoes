@@ -23,7 +23,6 @@ import {
 import { findEchoesForFeeling, generateEchoArtifact } from '../services/geminiService';
 import type { EchoData, HistoryItem } from '../types';
 
-// Constants
 const PLACEHOLDERS = [
   "the specific loneliness of 3 AM...",
   "nostalgia for a time I never lived in...",
@@ -163,15 +162,6 @@ const Echoes: React.FC = () => {
     return () => clearInterval(interval);
   }, [view]);
 
-  const getExternalLink = (type: string, title: string, creator: string) => {
-      const query = encodeURIComponent(`${title} ${creator}`);
-      const t = type.toLowerCase();
-      if (t.includes('song') || t.includes('music')) return `https://open.spotify.com/search/${query}`;
-      if (t.includes('film') || t.includes('movie')) return `https://letterboxd.com/search/${query}`;
-      if (t.includes('book') || t.includes('poetry')) return `https://www.goodreads.com/search?q=${query}`;
-      return `https://www.google.com/search?q=${query}`;
-  };
-
   const findEcho = async (overrideInput?: string) => {
     const searchTerm = overrideInput || input;
     if (!searchTerm || !searchTerm.trim()) return;
@@ -252,7 +242,6 @@ const Echoes: React.FC = () => {
     }
   };
 
-  const handleDrift = () => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)]);
   const handleReset = () => { setData(null); setInput(''); setView('input'); setSynthesisImage(null); setError(''); localStorage.removeItem('echoes_active_session'); };
   const handleBack = () => view === 'artifact' ? setView('echo') : setView('input');
 
@@ -329,7 +318,7 @@ const Echoes: React.FC = () => {
                  <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 opacity-100 translate-y-0' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
-                <button onClick={handleDrift} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
+                <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
                 {error && <div className="text-red-400 text-xs tracking-wider text-center px-4">{error}</div>}
               </div>
             </div>

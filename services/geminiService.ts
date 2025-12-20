@@ -2,12 +2,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key is missing in environment variables.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Always initialize with process.env.API_KEY exactly as required
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -78,6 +74,6 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
   const seed = Math.floor(Math.random() * 1000000);
-  // Reverted to Pollinations.ai (Flux) as requested for stable image generation
+  // Reverted to Pollinations.ai (Flux) for stable, free image generation
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };
