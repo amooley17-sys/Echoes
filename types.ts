@@ -1,4 +1,3 @@
-
 export interface EchoItem {
   type: string;
   title: string;
@@ -13,15 +12,6 @@ export interface EchoData {
   echoes: EchoItem[];
   community_insight: string;
   search_query: string;
-}
-
-export interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  size: number;
-  opacity: number;
-  speedY: number;
 }
 
 export interface HistoryItem {
