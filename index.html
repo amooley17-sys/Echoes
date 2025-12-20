@@ -9,9 +9,14 @@
     <style>
       body {
         font-family: 'Lora', serif;
+        background-color: #0c0a09;
       }
       h1, h2, h3, blockquote {
         font-family: 'Playfair Display', serif;
+      }
+      .selection-area::selection {
+        background: #44403c;
+        color: #fafaf9;
       }
     </style>
   <script type="importmap">
@@ -26,7 +31,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="selection-area">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
