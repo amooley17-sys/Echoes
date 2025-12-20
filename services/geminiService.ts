@@ -2,8 +2,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // Always initialize with process.env.API_KEY exactly as required
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+  // CRITICAL: Vite requires 'import.meta.env' and the 'VITE_' prefix for browser apps
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please set VITE_GEMINI_API_KEY in Vercel.");
+  }
+
+  const genAI = new GoogleGenAI(apiKey);
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -51,18 +57,22 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
+    // Switched to 1.5-flash to avoid the 20-request-per-day limit of the v3 preview
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash", 
+      systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
+    });
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world.",
         temperature: 1.0,
       },
     });
 
-    const text = response.text;
+    const text = result.response.text();
     if (!text) throw new Error("The archive returned no data.");
 
     return JSON.parse(text) as EchoData;
@@ -74,6 +84,5 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
   const seed = Math.floor(Math.random() * 1000000);
-  // Reverted to Pollinations.ai (Flux) for stable, free image generation
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };
