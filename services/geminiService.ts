@@ -3,7 +3,7 @@ import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
   // Use gemini-2.5-flash as explicitly requested for high-performance content generation
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
