@@ -17,7 +17,7 @@ import {
   VolumeX,
   X,
   Clock,
-  Image as ImageIcon
+  ArrowRight
 } from 'lucide-react';
 import { findEchoesForFeeling, generateEchoArtifact } from '../services/geminiService';
 import type { EchoData, HistoryItem } from '../types';
@@ -28,7 +28,6 @@ const PLACEHOLDERS = [
   "the silence after a loud party...",
   "feeling like a ghost in my own life...",
   "the smell of old books and rain...",
-  "the heavy quiet of a sunday evening...",
   "missing a version of myself that no longer exists...",
   "the weight of unsaid words...",
   "craving a silence I can't explain..."
@@ -38,22 +37,19 @@ const DRIFT_CONCEPTS = [
   "The strange comfort of being alone in a crowded room.",
   "A longing for a home you can't return to, or that never was.",
   "The realization that you are currently living in a memory.",
-  "The desire to care less about things that mean so much.",
-  "Nostalgia for a conversation you haven't had yet.",
-  "Finding beauty in things that are falling apart."
+  "Finding beauty in things that are falling apart.",
+  "Nostalgia for a conversation you haven't had yet."
 ];
 
-const ART_STYLES = [
-  "Minimalist cinematic void with heavy grain and soft light leaks",
-  "Abstract expressionist oil painting with thick impasto textures",
-  "Ethereal double-exposure photography blending nature and light",
-  "Surreal metaphysical dreamscape with fluid, organic forms",
-  "Experimental cyanotype print with distressed edges and deep tones",
-  "Grainy film-still from a lost 1970s avant-garde masterpiece",
-  "Tactile mixed-media collage with weathered paper and ink washes",
-  "Atmospheric color-field abstraction focusing on deep emotional resonance",
-  "Minimalist sculptural study in shadow and light, very abstract",
-  "Fluid watercolor and charcoal impression, raw and emotive"
+const CINEMATIC_STYLES = [
+  "Wong Kar-wai neon melancholy, high contrast, blurred movement, cinematic green and red hues",
+  "Tarkovsky-esque pastoral stillness, muted earthy tones, fog-drenched landscapes, 35mm grain",
+  "A24 modern minimalist aesthetic, sharp focus, uncanny lighting, evocative suburban or urban isolation",
+  "Classic Noir, deep shadows, dramatic rim lighting, wet pavement, smoke, high monochrome contrast",
+  "French New Wave, natural light, nostalgic 1960s film stock, candid emotional moment",
+  "Edward Hopper-inspired cinematic shot, lonely diners, long shadows, evocative architecture",
+  "Cyberpunk liminality, rainy windows, neon reflections, industrial loneliness",
+  "Wes Anderson-esque symmetrical loneliness, pastel palettes, meticulously composed isolation"
 ];
 
 type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
@@ -117,16 +113,9 @@ const Echoes: React.FC = () => {
   }, [isMuted]);
 
   useEffect(() => {
-    if (audioContextRef.current) {
-        if (isMuted) audioContextRef.current.suspend();
-        else audioContextRef.current.resume();
-    }
-  }, [isMuted]);
-
-  useEffect(() => {
       const savedHistory = localStorage.getItem('echoes_history');
       if (savedHistory) {
-          try { setHistory(JSON.parse(savedHistory)); } catch(e) { console.error("History parse error", e); }
+          try { setHistory(JSON.parse(savedHistory)); } catch(e) { console.error("History error", e); }
       }
       const savedSession = localStorage.getItem('echoes_active_session');
       if (savedSession) {
@@ -138,7 +127,7 @@ const Echoes: React.FC = () => {
                   setView(parsed.view || 'echo');
                   if (parsed.view === 'artifact' && parsed.synthesisImage) setSynthesisImage(parsed.synthesisImage);
               }
-          } catch (e) { console.error("Failed to restore session", e); }
+          } catch (e) { console.error("Restore error", e); }
       }
   }, []);
 
@@ -177,14 +166,12 @@ const Echoes: React.FC = () => {
     setLoading(true);
     setError('');
     setSynthesisImage(null); 
-    const delayPromise = new Promise(resolve => setTimeout(resolve, 2000));
     try {
-      const [resultData] = await Promise.all([ findEchoesForFeeling(searchTerm), delayPromise ]);
+      const resultData = await findEchoesForFeeling(searchTerm);
       setData(resultData);
       saveToShoebox(resultData, searchTerm);
       setView('echo');
     } catch (err: any) {
-      console.error(err);
       setError("The archive is silent. " + (err.message || "Please check your connection."));
     } finally { setLoading(false); }
   };
@@ -194,126 +181,76 @@ const Echoes: React.FC = () => {
     setView('synthesizing');
     setError('');
     
-    const echoesContent = data.echoes.map(e => e.title).join(', ');
-    const randomStyle = ART_STYLES[Math.floor(Math.random() * ART_STYLES.length)];
+    const randomStyle = CINEMATIC_STYLES[Math.floor(Math.random() * CINEMATIC_STYLES.length)];
     
-    // Constructing a more poetic prompt that avoids "statue/artifact" literalism
     const synthesisPrompt = `
-      A visual manifestation of the internal feeling of "${data.thematic_key}" and the emotional core of "${input}". 
-      Art style: ${randomStyle}. 
-      Influences: ${echoesContent}. 
-      Key resonance: ${data.thematic_key}.
-      Visual mood: Atmospheric, deeply personal, and evocative. 
-      Dominant color: ${data.color_hex}. 
-      Avoid literal objects, avoid statues, avoid faces, avoid historical idols. 
-      Focus on the texture of the soul, the geometry of feeling, and the play of light.
-      High resolution, cinematic, masterpiece.
+      Create a cinematic vignette—a high-quality movie still—that evokes the visceral feeling of: "${input}".
+      Visual Story: Instead of a literal diagram, show a metaphorical scene. 
+      For example, if the feeling is lonely, show a blurred figure in a rainy phone booth, or a single lit window in a dark brutalist block, or a half-eaten meal in a diner at 4am.
+      Cinematic Style: ${randomStyle}.
+      Mood: Use a palette anchored by ${data.color_hex} lighting accents. 
+      Details: 35mm film grain, anamorphic lens flares, rich atmospheric depth, evocative lighting, deep emotional resonance.
+      STRICTLY FORBIDDEN: Do not render any written text, typography, logos, or words in the image.
+      STRICTLY FORBIDDEN: Do not use literal statues or abstract shapes. It must look like a shot from a live-action film.
+      The result must look like a high-budget film still, deeply emotional and narratively suggestive.
     `;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
-      
-      const imgLoadPromise = new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(imageUrl);
-        img.onerror = () => reject(new Error("Image failed to render"));
-        // Cache buster to avoid cross-origin cache issues
-        img.src = `${imageUrl}&t=${Date.now()}`;
-      });
-
-      const minWaitPromise = new Promise(resolve => setTimeout(resolve, 3000));
-      await Promise.all([imgLoadPromise, minWaitPromise]);
-
       setSynthesisImage(imageUrl);
       setView('artifact');
     } catch (err: any) {
-      console.error("Artifact generation failed:", err);
-      const errorMsg = typeof err === 'string' ? err : (err.message || "Synthesis interrupted.");
-      setError(`The synthesis was interrupted: ${errorMsg}`);
-      
-      // Fallback: Try one more time without pre-loading check if the first fails
-      try {
-        const imageUrl = await generateEchoArtifact(synthesisPrompt);
-        setSynthesisImage(imageUrl);
-        setView('artifact');
-      } catch (innerErr) {
-        setError("Unable to synthesize artifact at this time.");
-        setView('echo');
-      }
+      console.error("Artifact error", err);
+      setError(`Synthesis interrupted: ${err.message || "Unexpected error"}`);
+      setView('echo');
     }
   };
 
   const handleDownloadCard = async () => {
     if (!synthesisImage || !data) return;
-
     try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if(!ctx) return;
-
         const width = 1200;
         const tracklistHeight = 150 + (data.echoes.length * 80); 
         const height = width + tracklistHeight;
-        
         canvas.width = width;
         canvas.height = height;
-
         ctx.fillStyle = '#0c0a09'; 
         ctx.fillRect(0, 0, width, height);
-
         const img = new Image();
         img.crossOrigin = "anonymous"; 
-        
         await new Promise((resolve, reject) => {
             img.onload = resolve;
-            img.onerror = () => reject(new Error("Failed to load image for download"));
-            const separator = synthesisImage.includes('?') ? '&' : '?';
-            img.src = `${synthesisImage}${separator}cb=${Date.now()}`;
+            img.onerror = reject;
+            img.src = synthesisImage;
         });
-
         ctx.drawImage(img, 0, 0, width, width);
-        
         const contentStartY = width + 80;
         ctx.fillStyle = '#e7e5e4'; 
         ctx.font = 'bold 60px Serif';
         ctx.fillText(data.thematic_key, 60, contentStartY);
-
         let currentY = contentStartY + 80;
-        
         data.echoes.forEach((echo) => {
             ctx.fillStyle = '#a8a29e'; 
             ctx.font = 'bold 32px Sans-Serif';
             ctx.fillText(echo.title.toUpperCase(), 60, currentY);
-            
             ctx.fillStyle = '#57534e'; 
             ctx.font = '24px Monospace';
             ctx.fillText(`${echo.creator} / ${echo.year}`, 60, currentY + 35);
-            
             currentY += 80; 
         });
-
-        ctx.fillStyle = '#44403c'; 
-        ctx.font = '20px Monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`ECHOES ARCHIVE • ${new Date().toLocaleDateString()}`, width / 2, height - 40);
-
         const dataUrl = canvas.toDataURL('image/png');
         const link = document.createElement('a');
         link.href = dataUrl;
-        link.download = `echoes-manifestation-${data.thematic_key.toLowerCase()}.png`;
-        document.body.appendChild(link);
+        link.download = `echoes-${data.thematic_key.toLowerCase()}.png`;
         link.click();
-        document.body.removeChild(link);
-
     } catch (e) {
-        console.error("Canvas generation failed", e);
         const link = document.createElement('a');
         link.href = synthesisImage;
-        link.download = `echoes-manifestation-image.jpg`;
-        document.body.appendChild(link);
+        link.download = 'echo-artifact.png';
         link.click();
-        document.body.removeChild(link);
     }
   };
 
@@ -322,10 +259,9 @@ const Echoes: React.FC = () => {
 
   const getIcon = (type: string) => {
     const t = type.toLowerCase();
-    if (t.includes('book') || t.includes('poetry') || t.includes('letter')) return <BookOpen className="w-4 h-4" />;
-    if (t.includes('song') || t.includes('music') || t.includes('sound')) return <Music className="w-4 h-4" />;
+    if (t.includes('book') || t.includes('poetry')) return <BookOpen className="w-4 h-4" />;
+    if (t.includes('song') || t.includes('music')) return <Music className="w-4 h-4" />;
     if (t.includes('film') || t.includes('movie')) return <Film className="w-4 h-4" />;
-    if (t.includes('paint') || t.includes('sculpt') || t.includes('art')) return <ImageIcon className="w-4 h-4" />;
     return <Ghost className="w-4 h-4" />;
   };
 
@@ -334,7 +270,7 @@ const Echoes: React.FC = () => {
       <div className="fixed inset-0 pointer-events-none z-0">
         {view === 'artifact' && synthesisImage && (
             <div className="absolute inset-0 z-0 opacity-20 scale-110 blur-3xl transition-opacity duration-[2000ms]">
-                <img src={synthesisImage} className="w-full h-full object-cover" alt="Background" />
+                <img src={synthesisImage} className="w-full h-full object-cover" alt="" />
             </div>
         )}
       </div>
@@ -347,28 +283,28 @@ const Echoes: React.FC = () => {
                 )}
                 <button onClick={handleReset} className="flex items-center gap-2 group transition-all duration-500">
                     <Sparkles className="w-4 h-4 text-stone-200 group-hover:text-white" />
-                    <span className="text-xs tracking-[0.4em] uppercase font-medium text-stone-200 group-hover:text-white">Echoes</span>
+                    <span className="text-xs tracking-[0.4em] uppercase font-medium text-stone-200">Echoes</span>
                 </button>
             </div>
             <div className="flex items-center gap-4 pointer-events-auto">
                 <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors">
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors relative"><Archive className="w-4 h-4" /></button>
+                <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 relative"><Archive className="w-4 h-4" /></button>
             </div>
         </header>
 
-        <div className={`fixed inset-y-0 right-0 w-80 bg-stone-900 border-l border-stone-800 shadow-2xl z-[60] transform transition-transform duration-500 ease-in-out ${showShoebox ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`fixed inset-y-0 right-0 w-80 bg-stone-900 border-l border-stone-800 shadow-2xl z-[60] transform transition-transform duration-500 ${showShoebox ? 'translate-x-0' : 'translate-x-full'}`}>
             <div className="p-6 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-sm uppercase tracking-widest text-stone-400 font-medium flex items-center gap-2"><Archive className="w-4 h-4" /> The Shoebox</h2>
+                    <h2 className="text-sm uppercase tracking-widest text-stone-400 flex items-center gap-2"><Archive className="w-4 h-4" /> The Shoebox</h2>
                     <button onClick={() => setShowShoebox(false)} className="text-stone-500 hover:text-stone-300"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+                <div className="flex-grow overflow-y-auto space-y-4">
                     {history.length === 0 ? (
-                        <div className="text-stone-600 text-sm font-mono text-center pt-12">The archive is empty.<br/>Trace a feeling to begin.</div>
+                        <div className="text-stone-600 text-sm font-mono text-center pt-12">The archive is empty.</div>
                     ) : history.map((item) => (
-                        <button key={item.id} onClick={() => loadFromShoebox(item)} className="w-full text-left p-4 bg-stone-950/50 hover:bg-stone-800 border border-stone-800 hover:border-stone-600 rounded-sm transition-all group">
+                        <button key={item.id} onClick={() => loadFromShoebox(item)} className="w-full text-left p-4 bg-stone-950/50 hover:bg-stone-800 border border-stone-800 rounded-sm transition-all group">
                             <div className="text-[10px] text-stone-500 font-mono mb-2 flex items-center gap-2"><Clock className="w-3 h-3" />{new Date(item.timestamp).toLocaleDateString()}</div>
                             <div className="text-stone-300 font-serif text-lg leading-tight mb-1 group-hover:text-white">{item.data.thematic_key}</div>
                             <div className="text-xs text-stone-600 truncate font-sans">"{item.input}"</div>
@@ -378,30 +314,30 @@ const Echoes: React.FC = () => {
             </div>
         </div>
         
-        {showShoebox && <div onClick={() => setShowShoebox(false)} className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm transition-opacity" />}
+        {showShoebox && <div onClick={() => setShowShoebox(false)} className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" />}
 
         <main className="flex-grow flex flex-col pt-24">
           {view === 'input' && (
             <div className="flex-grow flex flex-col justify-center items-center max-w-2xl mx-auto w-full px-6 animate-in fade-in zoom-in-95 duration-1000">
               <div className="text-center mb-12">
                   <h1 className="text-3xl md:text-5xl font-light text-stone-200 leading-tight mb-4">Trace your feeling.</h1>
-                  <p className="text-stone-500 text-[15px] md:text-base font-sans font-light tracking-wide">The archive is open. What are you carrying today?</p>
+                  <p className="text-stone-500 text-[15px] font-sans font-light tracking-wide">What are you carrying today?</p>
               </div>
               <div className="relative group w-full mb-10 text-center">
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={PLACEHOLDERS[placeholderIndex]} className="w-full bg-transparent border-b border-stone-800 text-xl md:text-2xl py-4 focus:outline-none focus:border-stone-500 transition-colors placeholder-stone-800 font-serif text-center" onKeyDown={(e) => e.key === 'Enter' && findEcho()} />
               </div>
               <div className="w-full flex flex-col items-center gap-6">
-                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.1)] opacity-100 translate-y-0' : 'bg-stone-900 text-stone-600 border border-stone-800 opacity-0 translate-y-4 pointer-events-none'}`}>
+                 <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 opacity-100 shadow-[0_0_30px_rgba(255,255,255,0.05)]' : 'bg-stone-900 text-stone-600 opacity-0 pointer-events-none'}`}>
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
-                <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
-                {error && <div className="text-red-400 text-xs tracking-wider text-center px-4 mt-6 font-sans leading-relaxed max-w-sm">{error}</div>}
+                <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3" />Drift</button>
+                {error && <div className="text-red-400 text-xs text-center px-4 mt-6">{error}</div>}
               </div>
             </div>
           )}
 
           {view === 'echo' && data && (
-            <div className="flex-grow overflow-y-auto w-full px-4 md:px-8 pt-8 pb-40 md:pb-48 animate-in fade-in duration-1000">
+            <div className="flex-grow overflow-y-auto w-full px-4 md:px-8 pt-8 pb-40 animate-in fade-in duration-1000">
               <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-min mb-16">
                   <div className="md:col-span-2 bg-stone-900/40 border border-stone-800/50 p-6 md:p-8 rounded-sm flex flex-col justify-between min-h-[180px]">
                       <div className="flex justify-between items-start mb-4">
@@ -415,7 +351,7 @@ const Echoes: React.FC = () => {
                       <div className="text-xl font-medium tracking-widest uppercase" style={{ color: data.color_hex }}>{data.thematic_key}</div>
                   </div>
                   {data.echoes.map((item, idx) => (
-                      <div key={idx} className={`bg-stone-900/40 border border-stone-800/50 p-6 md:p-8 rounded-sm flex flex-col justify-between group hover:bg-stone-900/60 transition-all duration-1000 ease-out ${idx === 0 ? 'md:col-span-2' : 'md:col-span-1'}`}>
+                      <div key={idx} className={`bg-stone-900/40 border border-stone-800/50 p-6 md:p-8 rounded-sm flex flex-col justify-between group hover:bg-stone-900/60 transition-all duration-1000 ${idx === 0 ? 'md:col-span-2' : 'md:col-span-1'}`}>
                            <div className="mb-6">
                                <div className="flex items-center justify-between mb-4">
                                   <div className="flex items-center gap-2" style={{ color: data.color_hex }}>{getIcon(item.type)}<span className="text-[10px] uppercase tracking-widest font-semibold opacity-90">{item.type}</span></div>
@@ -429,23 +365,25 @@ const Echoes: React.FC = () => {
                            </div>
                       </div>
                   ))}
-                  
+
+                  {/* RESTORED COMMUNITY SECTION */}
                   <a 
                     href={`https://www.reddit.com/search/?q=${encodeURIComponent(data.search_query || input)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="md:col-span-1 bg-stone-900/20 border border-dashed border-stone-700 p-6 rounded-sm flex flex-col justify-between transition-all group relative overflow-hidden hover:border-stone-500 cursor-pointer"
+                    className="md:col-span-1 bg-stone-900/20 border border-dashed border-stone-700 p-6 rounded-sm flex flex-col justify-between hover:border-stone-500 transition-all group cursor-pointer relative overflow-hidden"
                   >
                       <div className="relative z-10">
                           <div className="flex items-center gap-2 text-stone-400 mb-4">
                             <MessageCircle className="w-4 h-4" />
                             <span className="text-[10px] uppercase tracking-widest font-medium font-mono">The Human Archive</span>
-                            <ExternalLink className="w-3 h-3 ml-auto opacity-40 group-hover:opacity-100 transition-opacity" />
                           </div>
-                          <p className="text-sm text-stone-300 leading-relaxed font-mono opacity-80 tracking-tight">"{data.community_insight}"</p>
+                          <p className="text-sm text-stone-300 leading-relaxed font-mono opacity-80 tracking-tight">
+                            "{data.community_insight}"
+                          </p>
                       </div>
                       <div className="mt-6 flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-mono group-hover:text-stone-300">
-                          View community <ArrowLeft className="w-3 h-3 rotate-180" />
+                          View Threads <ArrowRight className="w-3 h-3" />
                       </div>
                   </a>
               </div>
@@ -462,16 +400,16 @@ const Echoes: React.FC = () => {
                       <div className="w-16 h-16 border border-stone-800 rounded-full animate-ping absolute opacity-20"></div>
                       <Loader2 className="w-8 h-8 animate-spin text-stone-500" />
                   </div>
-                  <div className="mt-8 text-xs tracking-[0.3em] uppercase text-stone-500 animate-pulse">Synthesizing Manifestation</div>
+                  <div className="mt-8 text-xs tracking-[0.3em] uppercase text-stone-500 animate-pulse">Synthesizing Artifact</div>
               </div>
           )}
 
           {view === 'artifact' && synthesisImage && data && (
-              <div className="flex-grow w-full h-full flex flex-col justify-center items-center px-6 py-8 pb-48 md:pb-56 animate-in fade-in zoom-in-95 duration-1000">
+              <div className="flex-grow w-full h-full flex flex-col justify-center items-center px-6 py-8 pb-48 animate-in fade-in zoom-in-95 duration-1000">
                   <div className="flex flex-col items-center justify-center w-full max-w-sm flex-grow">
                       <div className="relative w-full bg-stone-900 shadow-2xl overflow-hidden group border border-stone-800">
                           <div className="aspect-square w-full relative overflow-hidden bg-stone-950">
-                             <img src={synthesisImage} alt="Manifestation" className="w-full h-full object-cover" />
+                             <img src={synthesisImage} alt="Artifact" className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110" />
                           </div>
                           <div className="bg-stone-950 p-6 space-y-4 border-t border-stone-800">
                               <div className="pb-4 mb-2 border-b border-stone-900">
@@ -480,27 +418,16 @@ const Echoes: React.FC = () => {
                               <div className="space-y-3">
                                 {data.echoes.map((echo, idx) => (
                                     <div key={idx} className="flex justify-between items-start text-[10px] text-stone-500 gap-4">
-                                        <span className="uppercase tracking-wider text-stone-400 font-bold leading-tight flex-grow text-left">{echo.title}</span>
-                                        <span className="font-mono opacity-50 whitespace-nowrap text-right">{echo.year}</span>
+                                        <span className="uppercase tracking-wider text-stone-400 font-bold text-left">{echo.title}</span>
+                                        <span className="font-mono opacity-50 whitespace-nowrap">{echo.year}</span>
                                     </div>
                                 ))}
                               </div>
                           </div>
                       </div>
                       <div className="mt-12 flex flex-col gap-4 w-full">
-                          <button 
-                            onClick={handleDownloadCard}
-                            className="w-full py-5 bg-stone-100 text-stone-950 font-bold text-xs uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                          >
-                            Download Artifact
-                          </button>
-                          
-                          <button 
-                            onClick={handleReset} 
-                            className="w-full py-5 bg-transparent border border-stone-700 text-stone-200 font-bold text-xs uppercase tracking-[0.4em] rounded-full hover:bg-stone-200 hover:text-stone-950 hover:border-white transition-all shadow-[0_0_40px_rgba(255,255,255,0.02)]"
-                          >
-                            Trace Another
-                          </button>
+                          <button onClick={handleDownloadCard} className="w-full py-5 bg-stone-100 text-stone-950 font-bold text-xs uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]">Download Artifact</button>
+                          <button onClick={handleReset} className="w-full py-5 bg-transparent border border-stone-700 text-stone-200 font-bold text-xs uppercase tracking-[0.4em] rounded-full hover:bg-stone-200 hover:text-stone-950 transition-all">Trace Another</button>
                       </div>
                   </div>
               </div>

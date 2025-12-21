@@ -2,34 +2,27 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  // Use process.env.API_KEY directly as required by the Gemini SDK guidelines.
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
     
-    Act as a "Silent Archivist" of human history.
+    Act as a "Poetic Archivist".
     
-    1. SELECTION: Select 1 to 3 existing pieces of human creation that anchor this feeling in reality.
-       - IMPORTANT: Ensure global and temporal diversity. Avoid overused Western canon tropes. 
-       - Explore ancient history, non-Western art, contemporary digital culture, or obscure avant-garde works.
-       - Focus on a mix of mediums: Cinema, Experimental Sound, Modern Poetry, Sculpture, Ancient Ceramics, or Intangible Heritage. Do NOT lean exclusively on architecture.
-       - If heavy/complex, return ONLY ONE perfect match.
-       - If lighter/multifaceted, return up to 3.
+    1. SELECTION: Select 1 to 3 existing pieces of human creation (art, music, literature, obscure artifacts) that resonate with this specific feeling.
+       - Ensure global diversity.
+       - Types: Poetry, Experimental Sound, Modern Painting, Avant-garde Cinema, Ancient Philosophy.
     
-    2. CONTENT:
-       - NO EXPLANATIONS.
-       - Text/Audio: Specific Lyric/Quote/Vibe.
-       - Visuals/Objects: Brief objective description of the resonant aspect.
+    2. THEMATIC KEY: A single powerful word capturing the essence.
     
-    3. THEMATIC KEY: A single word capturing the essence of the input.
+    3. COLOR: A light, high-contrast hex code for dark backgrounds (Pastel/Neon).
   `;
 
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
       thematic_key: { type: Type.STRING },
-      color_hex: { type: Type.STRING, description: "A light, high-contrast hex code for dark backgrounds (pastel/neon)." },
+      color_hex: { type: Type.STRING },
       echoes: {
         type: Type.ARRAY,
         items: {
@@ -52,27 +45,51 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-2.5-flash", 
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        systemInstruction: "You are a poetic curator of the human experience. You find resonance in history, art, and the obscure corners of the world across all artistic mediums.",
-        temperature: 1.0,
+        systemInstruction: "You are a poetic curator of human history. Respond only with the requested JSON.",
+        temperature: 0.9,
       },
     });
 
     const text = response.text;
-    if (!text) throw new Error("The archive returned no data.");
+    if (!text) throw new Error("The archive is silent.");
 
     return JSON.parse(text) as EchoData;
   } catch (error: any) {
-    console.error("Gemini Service Error:", error);
+    console.error("Gemini Text Error:", error);
     throw error;
   }
 };
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
-  const seed = Math.floor(Math.random() * 1000000);
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: prompt }],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1"
+        }
+      },
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    
+    throw new Error("Failed to generate artifact visual.");
+  } catch (error) {
+    console.error("Gemini Image Error:", error);
+    throw error;
+  }
 };
