@@ -42,14 +42,14 @@ const DRIFT_CONCEPTS = [
 ];
 
 const CINEMATIC_STYLES = [
-  "Wong Kar-wai neon melancholy, high contrast, blurred movement",
-  "Tarkovsky-esque pastoral stillness, fog-drenched landscapes",
-  "A24 modern minimalist aesthetic, sharp focus, uncanny lighting",
-  "Classic Noir, deep shadows, dramatic rim lighting",
-  "French New Wave, hand-held feel, natural light",
-  "Edward Hopper-inspired cinematic shot, lonely diner, long shadows",
-  "Cyberpunk liminality, rainy windows, neon reflections",
-  "Wes Anderson-esque symmetrical loneliness, pastel palettes"
+  "Wong Kar-wai neon melancholy",
+  "Tarkovsky pastoral stillness",
+  "A24 modern minimalist aesthetic",
+  "Classic Noir deep shadows",
+  "French New Wave natural light",
+  "Edward Hopper lonely diner style",
+  "Cyberpunk liminality and rain",
+  "Wes Anderson pastel symmetrical loneliness"
 ];
 
 type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
@@ -182,7 +182,7 @@ const Echoes: React.FC = () => {
     setError('');
     
     const randomStyle = CINEMATIC_STYLES[Math.floor(Math.random() * CINEMATIC_STYLES.length)];
-    const synthesisPrompt = `A cinematic movie still capturing: ${input}. Style: ${randomStyle}. Ethereal lighting, moody atmosphere, no text.`;
+    const synthesisPrompt = `A high-quality cinematic film still capturing the essence of ${input}. Style: ${randomStyle}. Ethereal lighting, moody atmosphere, rich 35mm grain, highly evocative, no text.`;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);

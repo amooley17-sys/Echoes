@@ -45,7 +45,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3-flash-preview", // 1500 Requests Per Day - No more quota errors
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -82,17 +82,18 @@ export const generateEchoArtifact = async (prompt: string): Promise<string> => {
     });
 
     if (!response.candidates?.[0]?.content?.parts) {
-      throw new Error("No candidates returned from the model.");
+      throw new Error("No image candidates returned.");
     }
 
+    // Find the inlineData part containing the base64 image
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
     
-    throw new Error("No image data found in response.");
-  } catch (error) {
+    throw new Error("Visual synthesis failed: no data found.");
+  } catch (error: any) {
     console.error("Gemini Image Error:", error);
     throw error;
   }
