@@ -198,13 +198,14 @@ const Echoes: React.FC = () => {
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
       
-      // PRE-LOAD IMAGE TO ENSURE STABILITY
+      // PRE-LOAD IMAGE TO ENSURE BROWSER HAS IT BEFORE TRANSITION
       const img = new Image();
-      img.src = imageUrl;
-      await new Promise((resolve, reject) => {
+      const loadPromise = new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = reject;
+        img.onerror = () => reject(new Error("The visual artifact failed to render."));
       });
+      img.src = imageUrl;
+      await loadPromise;
 
       setSynthesisImage(imageUrl);
       setView('artifact');
@@ -229,6 +230,7 @@ const Echoes: React.FC = () => {
         ctx.fillStyle = '#0c0a09'; 
         ctx.fillRect(0, 0, width, height);
         const img = new Image();
+        // CrossOrigin not needed for base64 but helpful if it was a URL
         img.crossOrigin = "anonymous"; 
         await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -375,7 +377,6 @@ const Echoes: React.FC = () => {
                       </div>
                   ))}
 
-                  {/* RESTORED COMMUNITY SECTION */}
                   <a 
                     href={`https://www.reddit.com/search/?q=${encodeURIComponent(data.search_query || input)}`}
                     target="_blank"

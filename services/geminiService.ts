@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -81,13 +81,17 @@ export const generateEchoArtifact = async (prompt: string): Promise<string> => {
       },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (!response.candidates?.[0]?.content?.parts) {
+      throw new Error("No candidates returned from the model.");
+    }
+
+    for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
     
-    throw new Error("Failed to generate artifact visual.");
+    throw new Error("No image data found in response.");
   } catch (error) {
     console.error("Gemini Image Error:", error);
     throw error;
