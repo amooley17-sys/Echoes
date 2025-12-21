@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -66,34 +66,9 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 };
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      },
-    });
-
-    if (!response.candidates?.[0]?.content?.parts) {
-      throw new Error("No candidates returned from the model.");
-    }
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    
-    throw new Error("No image data found in response.");
-  } catch (error) {
-    console.error("Gemini Image Error:", error);
-    throw error;
-  }
+  // Reverting back to the stable image generation method used previously.
+  // This bypasses base64 transfer overhead and potential API model availability issues
+  // in specific deployment regions, ensuring the "Sit with this" button works reliably.
+  const seed = Math.floor(Math.random() * 1000000);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
 };
