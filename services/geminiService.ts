@@ -2,7 +2,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EchoData } from "../types";
 
 export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> => {
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+  // Use gemini-2.5-flash as explicitly requested for high-performance content generation
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     The user is expressing this feeling: "${feeling}".
@@ -45,12 +46,12 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // 1500 Requests Per Day - No more quota errors
+      model: "gemini-2.5-flash", 
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        systemInstruction: "You are a poetic curator of human history. Respond only with the requested JSON.",
+        systemInstruction: "You are a poetic curator of human history. Respond only with valid JSON.",
         temperature: 0.9,
       },
     });
@@ -66,35 +67,9 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 };
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      },
-    });
-
-    if (!response.candidates?.[0]?.content?.parts) {
-      throw new Error("No image candidates returned.");
-    }
-
-    // Find the inlineData part containing the base64 image
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    
-    throw new Error("Visual synthesis failed: no data found.");
-  } catch (error: any) {
-    console.error("Gemini Image Error:", error);
-    throw error;
-  }
+  // Directly using Pollinations.ai with the Flux model as requested.
+  // This removes dependency on Gemini's image generation quotas and billing.
+  const seed = Math.floor(Math.random() * 1000000);
+  const encodedPrompt = encodeURIComponent(prompt);
+  return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&model=flux&seed=${seed}`;
 };

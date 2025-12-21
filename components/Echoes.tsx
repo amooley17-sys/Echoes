@@ -185,12 +185,13 @@ const Echoes: React.FC = () => {
     const synthesisPrompt = `A high-quality cinematic film still capturing the essence of ${input}. Style: ${randomStyle}. Ethereal lighting, moody atmosphere, rich 35mm grain, highly evocative, no text.`;
 
     try {
+      // Pollinations.ai generates a URL instantly
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
       
       const img = new Image();
       const loadPromise = new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = () => reject(new Error("The visual artifact failed to load."));
+        img.onerror = () => reject(new Error("The visual artifact failed to render."));
       });
       img.src = imageUrl;
       await loadPromise;
@@ -199,7 +200,7 @@ const Echoes: React.FC = () => {
       setView('artifact');
     } catch (err: any) {
       console.error("Artifact error", err);
-      setError(`Synthesis interrupted: ${err.message || "Unexpected error"}`);
+      setError(`Synthesis failed: ${err.message || "Unexpected error"}`);
       setView('echo');
     }
   };

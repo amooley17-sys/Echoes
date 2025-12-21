@@ -11,26 +11,19 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
     Act as a "Silent Archivist".
     
     1. SELECTION: Select 1 to 3 existing pieces of human creation that anchor this feeling in reality.
-       - IMPORTANT: Ensure global and temporal diversity. Avoid overused Western canon tropes (e.g. Edward Hopper, The Great Gatsby). Explore ancient history, non-Western art, contemporary digital culture, or obscure avant-garde works.
-       - Ensure variety. Do not return the same results if the user asks multiple times.
-       - If heavy/complex, return ONLY ONE perfect match.
-       - If lighter/multifaceted, return up to 3.
+       - IMPORTANT: Ensure global and temporal diversity. Avoid overused Western canon tropes.
        - Types: Architecture, Poetry, Painting, Song, Movie Scene, Sculpture, Letter, Video Game Environment.
     
-    2. CONTENT:
-       - NO EXPLANATIONS.
-       - Text/Audio: Specific Lyric/Quote.
-       - Visuals/Objects: Brief objective description.
+    2. CONTENT: Specific Lyric/Quote or brief objective description.
     
     3. THEMATIC KEY: A single word (e.g. "Entropy").
   `;
 
-  // Define the schema for structured JSON output
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
       thematic_key: { type: Type.STRING, description: "A single thematic word capturing the mood." },
-      color_hex: { type: Type.STRING, description: "A hex color code representing the emotional color psychology of the feeling. Must be a LIGHT, HIGH-CONTRAST pastel or neon shade suitable for dark backgrounds (e.g. Cyan for digital isolation, Warm Amber for nostalgia, Pale Grey for emptiness). Do NOT use dark colors." },
+      color_hex: { type: Type.STRING, description: "A hex color code representing the emotional color psychology of the feeling. Must be a LIGHT, HIGH-CONTRAST shade." },
       echoes: {
         type: Type.ARRAY,
         items: {
@@ -53,13 +46,13 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash", // SWITCHED: Stable model, high rate limits
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
         systemInstruction: "You are a poetic and precise curator of human emotion through art history.",
-        temperature: 1.1, // Slightly higher for creativity
+        temperature: 1.1,
       },
     });
 
@@ -76,7 +69,21 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 };
 
 export const generateEchoArtifact = async (prompt: string): Promise<string> => {
-  // Directly use Pollinations.ai (Flux model) - Free, Unlimited, Stable
-  const seed = Math.floor(Math.random() * 1000000);
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1000&height=1000&nologo=true&seed=${seed}&model=flux`;
+  // SWITCHED: Pollinations (No API Key, No Quota). 
+  // Kept 'async' to match your interface, even though it's technically synchronous URL building.
+  
+  try {
+    const encodedPrompt = encodeURIComponent(prompt);
+    // Using 'flux' model for high quality, similar to Gemini Pro Vision capabilities
+    // 'nologo=true' keeps it clean
+    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&model=flux&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+    
+    // We return the URL directly. 
+    // Note: Your frontend will need to use <img src={result} /> instead of base64 data.
+    return Promise.resolve(url);
+    
+  } catch (error: any) {
+    console.error("Image Generation Error:", error);
+    throw error;
+  }
 };
