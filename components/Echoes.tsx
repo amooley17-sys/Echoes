@@ -42,14 +42,14 @@ const DRIFT_CONCEPTS = [
 ];
 
 const CINEMATIC_STYLES = [
-  "Wong Kar-wai neon melancholy, high contrast, blurred movement, cinematic green and red hues",
-  "Tarkovsky-esque pastoral stillness, muted earthy tones, fog-drenched landscapes, 35mm grain",
-  "A24 modern minimalist aesthetic, sharp focus, uncanny lighting, evocative suburban or urban isolation",
-  "Classic Noir, deep shadows, dramatic rim lighting, wet pavement, smoke, high monochrome contrast",
-  "French New Wave, hand-held feel, natural light, nostalgic 1960s film stock, candid emotional moment",
-  "Edward Hopper-inspired cinematic shot, lonely diners, long shadows, evocative architecture",
-  "Cyberpunk liminality, rainy windows, neon reflections, industrial loneliness",
-  "Wes Anderson-esque symmetrical loneliness, pastel palettes, meticulously composed isolation"
+  "Wong Kar-wai neon melancholy, high contrast, blurred movement",
+  "Tarkovsky-esque pastoral stillness, fog-drenched landscapes",
+  "A24 modern minimalist aesthetic, sharp focus, uncanny lighting",
+  "Classic Noir, deep shadows, dramatic rim lighting",
+  "French New Wave, hand-held feel, natural light",
+  "Edward Hopper-inspired cinematic shot, lonely diner, long shadows",
+  "Cyberpunk liminality, rainy windows, neon reflections",
+  "Wes Anderson-esque symmetrical loneliness, pastel palettes"
 ];
 
 type ViewState = 'input' | 'echo' | 'synthesizing' | 'artifact';
@@ -182,27 +182,15 @@ const Echoes: React.FC = () => {
     setError('');
     
     const randomStyle = CINEMATIC_STYLES[Math.floor(Math.random() * CINEMATIC_STYLES.length)];
-    
-    const synthesisPrompt = `
-      Create a cinematic vignette—a high-quality movie still—that evokes the visceral feeling of: "${input}".
-      Visual Story: Instead of a literal diagram, show a metaphorical scene. 
-      For example, if the feeling is lonely, show a blurred figure in a rainy phone booth, or a single lit window in a dark brutalist block, or a half-eaten meal in a diner at 4am.
-      Cinematic Style: ${randomStyle}.
-      Mood: Use a palette anchored by ${data.color_hex} lighting accents. 
-      Details: 35mm film grain, anamorphic lens flares, rich atmospheric depth, evocative lighting, deep emotional resonance.
-      STRICTLY FORBIDDEN: Do not render any written text, typography, logos, or words in the image.
-      STRICTLY FORBIDDEN: Do not use literal statues or abstract shapes. It must look like a shot from a live-action film.
-      The result must look like a high-budget film still, deeply emotional and narratively suggestive.
-    `;
+    const synthesisPrompt = `A cinematic movie still capturing: ${input}. Style: ${randomStyle}. Ethereal lighting, moody atmosphere, no text.`;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
       
-      // PRE-LOAD IMAGE TO ENSURE BROWSER HAS IT BEFORE TRANSITION
       const img = new Image();
       const loadPromise = new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = () => reject(new Error("The visual artifact failed to render."));
+        img.onerror = () => reject(new Error("The visual artifact failed to load."));
       });
       img.src = imageUrl;
       await loadPromise;
@@ -230,7 +218,6 @@ const Echoes: React.FC = () => {
         ctx.fillStyle = '#0c0a09'; 
         ctx.fillRect(0, 0, width, height);
         const img = new Image();
-        // CrossOrigin not needed for base64 but helpful if it was a URL
         img.crossOrigin = "anonymous"; 
         await new Promise((resolve, reject) => {
             img.onload = resolve;
