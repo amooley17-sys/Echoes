@@ -46,7 +46,7 @@ const CINEMATIC_STYLES = [
   "Tarkovsky-esque pastoral stillness, muted earthy tones, fog-drenched landscapes, 35mm grain",
   "A24 modern minimalist aesthetic, sharp focus, uncanny lighting, evocative suburban or urban isolation",
   "Classic Noir, deep shadows, dramatic rim lighting, wet pavement, smoke, high monochrome contrast",
-  "French New Wave, natural light, nostalgic 1960s film stock, candid emotional moment",
+  "French New Wave, hand-held feel, natural light, nostalgic 1960s film stock, candid emotional moment",
   "Edward Hopper-inspired cinematic shot, lonely diners, long shadows, evocative architecture",
   "Cyberpunk liminality, rainy windows, neon reflections, industrial loneliness",
   "Wes Anderson-esque symmetrical loneliness, pastel palettes, meticulously composed isolation"
@@ -197,6 +197,15 @@ const Echoes: React.FC = () => {
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
+      
+      // PRE-LOAD IMAGE TO ENSURE STABILITY
+      const img = new Image();
+      img.src = imageUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
       setSynthesisImage(imageUrl);
       setView('artifact');
     } catch (err: any) {
@@ -279,7 +288,7 @@ const Echoes: React.FC = () => {
         <header className="absolute top-0 left-0 w-full z-50 px-6 py-6 md:px-8 flex items-center justify-between pointer-events-none">
             <div className="flex items-center gap-4 pointer-events-auto">
                 {view !== 'input' && (
-                    <button onClick={handleBack} className="opacity-70 hover:opacity-100 transition-opacity p-2 -ml-2"><ArrowLeft className="w-6 h-6 text-stone-300" /></button>
+                    <button onClick={handleBack} className="opacity-70 hover:opacity-100 transition-opacity p-2 -ml-2" aria-label="Go back"><ArrowLeft className="w-6 h-6 text-stone-300" /></button>
                 )}
                 <button onClick={handleReset} className="flex items-center gap-2 group transition-all duration-500">
                     <Sparkles className="w-4 h-4 text-stone-200 group-hover:text-white" />
@@ -287,14 +296,14 @@ const Echoes: React.FC = () => {
                 </button>
             </div>
             <div className="flex items-center gap-4 pointer-events-auto">
-                <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors">
+                <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-stone-500 hover:text-stone-300 transition-colors" title={isMuted ? "Unmute" : "Mute"}>
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 relative"><Archive className="w-4 h-4" /></button>
+                <button onClick={() => setShowShoebox(true)} className="p-2 text-stone-500 hover:text-stone-300 relative" title="History"><Archive className="w-4 h-4" /></button>
             </div>
         </header>
 
-        <div className={`fixed inset-y-0 right-0 w-80 bg-stone-900 border-l border-stone-800 shadow-2xl z-[60] transform transition-transform duration-500 ${showShoebox ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`fixed inset-y-0 right-0 w-80 bg-stone-900 border-l border-stone-800 shadow-2xl z-[60] transform transition-transform duration-500 ease-in-out ${showShoebox ? 'translate-x-0' : 'translate-x-full'}`}>
             <div className="p-6 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-sm uppercase tracking-widest text-stone-400 flex items-center gap-2"><Archive className="w-4 h-4" /> The Shoebox</h2>
@@ -330,7 +339,7 @@ const Echoes: React.FC = () => {
                  <button onClick={() => findEcho()} disabled={loading || !input.trim()} className={`w-full max-w-xs py-4 rounded-full font-bold text-xs uppercase tracking-[0.2em] transition-all duration-500 transform ${input.trim() ? 'bg-stone-200 text-stone-900 hover:bg-white hover:scale-105 opacity-100 shadow-[0_0_30px_rgba(255,255,255,0.05)]' : 'bg-stone-900 text-stone-600 opacity-0 pointer-events-none'}`}>
                     {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> tracing...</span> : 'Trace This Feeling'}
                 </button>
-                <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3" />Drift</button>
+                <button onClick={() => setInput(DRIFT_CONCEPTS[Math.floor(Math.random() * DRIFT_CONCEPTS.length)])} className="px-6 py-2 rounded-full text-[10px] text-stone-600 hover:text-stone-400 transition-all uppercase tracking-widest flex items-center gap-2 group"><Compass className="w-3 h-3 group-hover:rotate-45 transition-transform" />Drift</button>
                 {error && <div className="text-red-400 text-xs text-center px-4 mt-6">{error}</div>}
               </div>
             </div>
