@@ -284,7 +284,7 @@ const Echoes: React.FC = () => {
     setView('synthesizing');
 
     const echoInfluences = data.echoes.map(e => `${e.title} (${e.type})`).join(', ');
-    const synthesisPrompt = `A high-end, evocative abstract/atmospheric fine art painting representing the theme of "${data.thematic_key}". Context: ${input}. Artistic influences: ${echoInfluences}. Color palette: ${data.color_hex}. Ethereal lighting, atmospheric depth, masterpiece quality, no text, no human faces, no people, non-figurative, solely focused on texture and light.`;
+    const synthesisPrompt = `A high-end, masterpiece of pure abstract expressionism. Theme: "${data.thematic_key}". Emotional context: ${input}. Artistic influences: ${echoInfluences}. Color palette: ${data.color_hex}. Strict constraints: Strictly no human faces, no eyes, no people, no figurative elements, non-representational, non-objective, ethereal atmospheric depth, focus exclusively on texture, light, and color fields. Evocative and fine-art quality.`;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
