@@ -46,7 +46,7 @@ export const findEchoesForFeeling = async (feeling: string): Promise<EchoData> =
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // SWITCHED: Stable model, high rate limits
+      model: "gemini-1.5-flash", // Using 1.5-flash for broad compatibility during deployment
       contents: prompt,
       config: {
         responseMimeType: "application/json",

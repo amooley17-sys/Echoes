@@ -1,5 +1,6 @@
 {
   "name": "Echoes Final",
   "description": "An ambient emotional resonance tool that connects your feelings to art, music, literature, and cinema using AI.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }
