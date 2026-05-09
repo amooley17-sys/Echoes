@@ -283,8 +283,14 @@ const Echoes: React.FC = () => {
     
     setView('synthesizing');
 
-    const echoInfluences = data.echoes.map(e => `${e.title} (${e.type})`).join(', ');
-    const synthesisPrompt = `A high-end, masterpiece of pure abstract expressionism. Theme: "${data.thematic_key}". Emotional context: ${input}. Artistic influences: ${echoInfluences}. Color palette: ${data.color_hex}. Strict constraints: Strictly no human faces, no eyes, no people, no figurative elements, non-representational, non-objective, ethereal atmospheric depth, focus exclusively on texture, light, and color fields. Evocative and fine-art quality.`;
+    const echoInfluences = data.echoes.map(e => `the abstract aesthetic and mood of "${e.title}"`).join(', ');
+    const synthesisPrompt = `A high-end, masterpiece of pure Non-Objective Abstract Expressionism. 
+    Theme: "${data.thematic_key}". 
+    Emotional resonance: ${input}. 
+    Atmospheric influences: ${echoInfluences}. 
+    Palette: ${data.color_hex}. 
+    STRICT PROHIBITIONS: No human faces, no eyes, no people, no bodies, no figurative elements, no characters, no silhouettes. No rooms, no hallways, no furniture, no buildings, no architecture, no landscapes, no recognizable physical objects. 
+    VISUAL STYLE: Pure atmospheric depth, ethereal light diffusion, raw painterly texture, heavy impasto, or delicate charcoal washes. Absolutely non-representational, non-objective, focused solely on the visceral harmony of color and the emotional weight of shaded gradients. High fine-art museum quality.`;
 
     try {
       const imageUrl = await generateEchoArtifact(synthesisPrompt);
